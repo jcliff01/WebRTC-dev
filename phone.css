@@ -1,0 +1,32 @@
+:root {
+  color-scheme: light;
+  font: 16px/1.55 system-ui, sans-serif;
+  background: #edf3f2;
+  color: #142c2a;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; padding: clamp(16px, 6vw, 60px) 16px; }
+main {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: clamp(20px, 5vw, 36px);
+  border: 1px solid #c5d8d4;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 16px 48px #193c3214;
+}
+header span { color: #336760; font-weight: 650; }
+h1 { margin: 2px 0 22px; font-size: clamp(1.8rem, 7vw, 2.45rem); letter-spacing: -.045em; }
+form, label { display: grid; gap: 12px; }
+label { gap: 4px; font-size: .9rem; font-weight: 650; }
+input, select, button { min-width: 0; min-height: 44px; border: 1px solid #aac2bc; border-radius: 9px; padding: 8px 12px; font: inherit; color: inherit; background: #fff; }
+input[readonly] { background: #edf5f3; }
+button { cursor: pointer; font-weight: 650; }
+button.primary { color: #fff; background: #115d50; border-color: #115d50; }
+button.end { color: #9b242c; border-color: #d49ea2; }
+button:disabled { opacity: .5; cursor: default; }
+:focus-visible { outline: 3px solid #458d80; outline-offset: 2px; }
+.line { display: flex; flex-wrap: wrap; gap: 8px; }
+#dial { margin-top: 18px; }
+#status { margin: 18px 0 0; padding: 12px; border-radius: 9px; background: #edf5f3; overflow-wrap: anywhere; }
