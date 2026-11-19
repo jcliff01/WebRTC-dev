@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Genesys Cloud Phone</title>
+  <link rel="stylesheet" href="./phone.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/genesys-cloud-webrtc-sdk@14.4.0/dist/v14.4.0/genesys-cloud-webrtc-sdk.bundle.min.js" integrity="sha384-gPq8XHeBTMSGgmeiPTTPhUJ9JCsM1gGFZTGcB//r3DbMvI0EgxxIzt8jCR0Hj7QT" crossorigin="anonymous"></script>
+  <script type="module" src="./phone.js"></script>
+</head>
+<body>
+  <main>
+    <header><span>Genesys Cloud</span><h1>WebRTC Phone</h1></header>
+    <form id="login">
+      <label>Organization region<select id="region"></select></label>
+      <label>OAuth client ID<input id="client-id" required autocomplete="off" spellcheck="false"></label>
+      <label>OAuth callback URL<input id="callback" readonly></label>
+      <button class="primary" id="sign-in">Sign in</button>
+    </form>
+    <section id="phone" aria-label="Phone controls" hidden>
+      <div class="line"><button id="enable" class="primary">Enable phone</button><button id="sign-out">Sign out</button></div>
+      <form id="dial">
+        <label>Number or extension<input id="number" type="tel" autocomplete="off" placeholder="+1 555 0100" required></label>
+        <div class="line">
+          <button class="primary" id="call">Call</button>
+          <button type="button" id="answer">Answer</button>
+          <button type="button" id="hang-up" class="end">Hang up</button>
+          <button type="button" id="mute" aria-pressed="false">Mute</button>
+        </div>
+      </form>
+      <audio id="speaker" autoplay></audio>
+    </section>
+    <p id="status" role="status">Sign in to connect your phone.</p>
+  </main>
+</body>
+</html>
