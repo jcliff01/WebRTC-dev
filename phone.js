@@ -31,7 +31,8 @@ byId('callback').value = callback;
 byId('callback').addEventListener('focus', (event) => event.target.select());
 
 function validSetup(client, domain) {
-  return typeof client === 'string' && Boolean(client.trim()) && regions.has(domain);
+  return typeof client === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(client.trim())
+    && regions.has(domain);
 }
 
 function readSetup() {
@@ -54,32 +55,44 @@ if (app) {
   region.value = app.domain;
   if (orgInput) orgInput.value = app.org ?? '';
   if (providerInput) providerInput.value = app.provider ?? '';
+} else {
+  setup.open = true;
 }
 
-byId('save-setup').addEventListener('click', () => {
+function saveSetup() {
   const client = clientId.value.trim();
   const domain = region.value;
   if (!validSetup(client, domain)) {
-    render('Choose the organization region and enter the app client ID from Genesys Cloud.');
-    return;
+    throw new Error('Choose your Genesys region and enter the OAuth Client ID from Genesys Cloud.');
   }
   const org = orgInput?.value.trim() ?? '';
   const provider = providerInput?.value.trim() ?? '';
   if (provider && !org) {
-    render('Enter the Genesys Cloud organization name to use a specific SSO provider.');
-    return;
+    throw new Error('Enter the Genesys Cloud organization name to use a specific SSO provider.');
   }
   app = { client, domain, org, provider };
   try {
     localStorage.setItem(setupKey, JSON.stringify(app));
   } catch {
-    render('Setup is ready for this visit. Browser storage is unavailable.');
-    setup.open = false;
-    return;
+    // The current tab still has the setup for the authorization request.
   }
   setup.open = false;
-  render('Setup saved. Sign in with Microsoft.');
-});
+}
+
+byId('save-setup').addEventListener('click', () => void run(() => {
+  saveSetup();
+  render('Phone setup ready. Sign in with Microsoft.');
+}));
+
+byId('copy-callback').addEventListener('click', () => void run(async () => {
+  byId('callback').select();
+  if (!navigator.clipboard?.writeText) {
+    render('Callback URL selected. Copy it into Genesys Cloud.');
+    return;
+  }
+  await navigator.clipboard.writeText(callback);
+  render('Callback copied. Add it to Authorized redirect URIs in Genesys Cloud.');
+}));
 
 let auth;
 let sdk;
@@ -134,50 +147,85 @@ login.addEventListener('submit', (event) => {
   event.preventDefault();
   void run(async () => {
     if (!window.isSecureContext) throw new Error('Open the phone over HTTPS or localhost.');
-    if (!app) {
-      setup.open = true;
-      clientId.focus();
-      throw new Error('This phone needs one-time app setup before users can sign in.');
-    }
+    if (!app || (!setup.hidden && setup.open)) saveSetup();
     const { client, domain, org, provider } = app;
     const verifier = random();
     const state = random();
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-    sessionStorage.setItem(transactionKey, JSON.stringify({
-      verifier, state, client, domain, expires: Date.now() + 600_000,
-    }));
+    try {
+      sessionStorage.setItem(transactionKey, JSON.stringify({
+        verifier, state, client, domain, callback, expires: Date.now() + 600_000,
+      }));
+    } catch {
+      throw new Error('Allow session storage in this browser so the phone can finish sign-in.');
+    }
     const url = new URL('https://login.' + domain + '/oauth/authorize');
     url.search = new URLSearchParams({
       client_id: client, response_type: 'code', redirect_uri: callback, state,
       code_challenge_method: 'S256', code_challenge: encode(new Uint8Array(digest)),
     });
-    if (org) url.searchParams.set('org', org);
-    if (org && provider) url.searchParams.set('provider', provider);
+    if (org && provider) {
+      url.searchParams.set('org', org);
+      url.searchParams.set('provider', provider);
+    } else if (org) {
+      url.searchParams.set('login_hint', org);
+    }
     location.assign(url);
   });
 });
 
+function oauthError(error, phase, httpStatus) {
+  switch (error) {
+    case 'access_denied':
+      return 'Sign-in was denied. Retry with your work account or ask your Genesys administrator to check app access.';
+    case 'invalid_client':
+    case 'unauthorized_client':
+      return 'Genesys rejected the OAuth client. Check the Client ID, region, and Code Authorization / PKCE grant.';
+    case 'invalid_grant':
+      return 'Genesys rejected the sign-in code. Start again and verify the authorized redirect URI: ' + callback;
+    case 'invalid_scope':
+      return 'Genesys rejected the OAuth scopes. Ask your administrator to check the WebRTC app client scopes.';
+    default:
+      return phase + (httpStatus ? ' (HTTP ' + httpStatus + ')' : '')
+        + '. Verify the OAuth client and this authorized redirect URI: ' + callback;
+  }
+}
+
 async function completeLogin(query) {
-  const saved = JSON.parse(sessionStorage.getItem(transactionKey));
-  sessionStorage.removeItem(transactionKey);
-  if (!saved || Date.now() >= saved.expires || !regions.has(saved.domain)
-      || query.getAll('state').length !== 1 || query.get('state') !== saved.state) {
-    throw new Error('Sign-in expired or could not be verified. Start again.');
+  let saved;
+  try {
+    saved = JSON.parse(sessionStorage.getItem(transactionKey));
+    sessionStorage.removeItem(transactionKey);
+  } catch {
+    throw new Error('The sign-in session could not be read. Start again in the same browser tab.');
   }
-  app ??= { client: saved.client, domain: saved.domain };
-  clientId.value = app.client;
-  region.value = app.domain;
-  if (query.has('error') || query.getAll('code').length !== 1 || !query.get('code')) {
-    throw new Error('Genesys Cloud did not complete sign-in. Check the OAuth client and callback URL.');
+  if (!saved || Date.now() >= saved.expires || !validSetup(saved.client, saved.domain)
+      || saved.callback !== callback || query.getAll('state').length !== 1
+      || query.get('state') !== saved.state) {
+    throw new Error('Sign-in expired or could not be verified. Start again in the same tab.');
   }
-  const response = await fetch('https://login.' + saved.domain + '/oauth/token', {
-    method: 'POST', redirect: 'error', signal: AbortSignal.timeout(20_000),
-    body: new URLSearchParams({
-      grant_type: 'authorization_code', client_id: saved.client, redirect_uri: callback,
-      code: query.get('code'), code_verifier: saved.verifier,
-    }),
-  });
-  if (!response.ok) throw new Error('Genesys token exchange failed (HTTP ' + response.status + ').');
+  if (query.has('error')) {
+    throw new Error(oauthError(query.get('error'), 'Genesys did not complete sign-in'));
+  }
+  if (query.getAll('code').length !== 1 || !query.get('code')) {
+    throw new Error('Genesys did not return an authorization code. Start sign-in again.');
+  }
+  let response;
+  try {
+    response = await fetch('https://login.' + saved.domain + '/oauth/token', {
+      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(20_000),
+      body: new URLSearchParams({
+        grant_type: 'authorization_code', client_id: saved.client, redirect_uri: saved.callback,
+        code: query.get('code'), code_verifier: saved.verifier,
+      }),
+    });
+  } catch {
+    throw new Error('The browser could not reach the Genesys token endpoint. Check the region, network, and PKCE grant.');
+  }
+  if (!response.ok) {
+    const failure = await response.json().catch(() => null);
+    throw new Error(oauthError(failure?.error, 'Genesys token exchange failed', response.status));
+  }
   const token = await response.json();
   if (typeof token.access_token !== 'string' || !token.access_token || !Number.isFinite(token.expires_in) || token.expires_in <= 0) {
     throw new Error('Genesys Cloud returned an invalid token.');
