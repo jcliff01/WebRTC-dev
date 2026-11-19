@@ -10,6 +10,8 @@ const callback = new URL('./', import.meta.url).href;
 const transactionKey = 'genesys-webrtc-pkce';
 const setupKey = 'genesys-webrtc-app-setup';
 const setup = byId('app-setup');
+const orgInput = byId('org');
+const providerInput = byId('provider');
 const environments = {
   'US East': 'mypurecloud.com', 'US West': 'usw2.pure.cloud',
   'Canada': 'cac1.pure.cloud', 'São Paulo': 'sae1.pure.cloud',
@@ -33,10 +35,10 @@ function validSetup(client, domain) {
 }
 
 function readSetup() {
-  const { clientId: client, region: domain } = login.dataset;
+  const { clientId: client, region: domain, org, provider } = login.dataset;
   if (validSetup(client, domain)) {
     setup.hidden = true;
-    return { client: client.trim(), domain };
+    return { client: client.trim(), domain, org: org?.trim(), provider: provider?.trim() };
   }
   try {
     const saved = JSON.parse(localStorage.getItem(setupKey));
@@ -50,6 +52,8 @@ let app = readSetup();
 if (app) {
   clientId.value = app.client;
   region.value = app.domain;
+  if (orgInput) orgInput.value = app.org ?? '';
+  if (providerInput) providerInput.value = app.provider ?? '';
 }
 
 byId('save-setup').addEventListener('click', () => {
@@ -59,7 +63,13 @@ byId('save-setup').addEventListener('click', () => {
     render('Choose the organization region and enter the app client ID from Genesys Cloud.');
     return;
   }
-  app = { client, domain };
+  const org = orgInput?.value.trim() ?? '';
+  const provider = providerInput?.value.trim() ?? '';
+  if (provider && !org) {
+    render('Enter the Genesys Cloud organization name to use a specific SSO provider.');
+    return;
+  }
+  app = { client, domain, org, provider };
   try {
     localStorage.setItem(setupKey, JSON.stringify(app));
   } catch {
@@ -68,7 +78,7 @@ byId('save-setup').addEventListener('click', () => {
     return;
   }
   setup.open = false;
-  render('Setup saved. Sign in with Genesys Cloud.');
+  render('Setup saved. Sign in with Microsoft.');
 });
 
 let auth;
@@ -129,7 +139,7 @@ login.addEventListener('submit', (event) => {
       clientId.focus();
       throw new Error('This phone needs one-time app setup before users can sign in.');
     }
-    const { client, domain } = app;
+    const { client, domain, org, provider } = app;
     const verifier = random();
     const state = random();
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
@@ -141,6 +151,8 @@ login.addEventListener('submit', (event) => {
       client_id: client, response_type: 'code', redirect_uri: callback, state,
       code_challenge_method: 'S256', code_challenge: encode(new Uint8Array(digest)),
     });
+    if (org) url.searchParams.set('org', org);
+    if (org && provider) url.searchParams.set('provider', provider);
     location.assign(url);
   });
 });
