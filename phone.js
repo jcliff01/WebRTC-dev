@@ -8,6 +8,8 @@ const status = byId('status');
 const speaker = byId('speaker');
 const callback = new URL('./', import.meta.url).href;
 const transactionKey = 'genesys-webrtc-pkce';
+const setupKey = 'genesys-webrtc-app-setup';
+const setup = byId('app-setup');
 const environments = {
   'US East': 'mypurecloud.com', 'US West': 'usw2.pure.cloud',
   'Canada': 'cac1.pure.cloud', 'São Paulo': 'sae1.pure.cloud',
@@ -25,6 +27,49 @@ for (const [name, domain] of Object.entries(environments)) {
 }
 byId('callback').value = callback;
 byId('callback').addEventListener('focus', (event) => event.target.select());
+
+function validSetup(client, domain) {
+  return typeof client === 'string' && Boolean(client.trim()) && regions.has(domain);
+}
+
+function readSetup() {
+  const { clientId: client, region: domain } = login.dataset;
+  if (validSetup(client, domain)) {
+    setup.hidden = true;
+    return { client: client.trim(), domain };
+  }
+  try {
+    const saved = JSON.parse(localStorage.getItem(setupKey));
+    if (validSetup(saved?.client, saved?.domain)) return saved;
+  } catch {
+    // The administrator can still configure this page for the current visit.
+  }
+}
+
+let app = readSetup();
+if (app) {
+  clientId.value = app.client;
+  region.value = app.domain;
+}
+
+byId('save-setup').addEventListener('click', () => {
+  const client = clientId.value.trim();
+  const domain = region.value;
+  if (!validSetup(client, domain)) {
+    render('Choose the organization region and enter the app client ID from Genesys Cloud.');
+    return;
+  }
+  app = { client, domain };
+  try {
+    localStorage.setItem(setupKey, JSON.stringify(app));
+  } catch {
+    render('Setup is ready for this visit. Browser storage is unavailable.');
+    setup.open = false;
+    return;
+  }
+  setup.open = false;
+  render('Setup saved. Sign in with Genesys Cloud.');
+});
 
 let auth;
 let sdk;
@@ -79,9 +124,12 @@ login.addEventListener('submit', (event) => {
   event.preventDefault();
   void run(async () => {
     if (!window.isSecureContext) throw new Error('Open the phone over HTTPS or localhost.');
-    const client = clientId.value.trim();
-    const domain = region.value;
-    if (!client || !regions.has(domain)) throw new Error('Choose a region and enter your OAuth client ID.');
+    if (!app) {
+      setup.open = true;
+      clientId.focus();
+      throw new Error('This phone needs one-time app setup before users can sign in.');
+    }
+    const { client, domain } = app;
     const verifier = random();
     const state = random();
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
@@ -104,8 +152,9 @@ async function completeLogin(query) {
       || query.getAll('state').length !== 1 || query.get('state') !== saved.state) {
     throw new Error('Sign-in expired or could not be verified. Start again.');
   }
-  clientId.value = saved.client;
-  region.value = saved.domain;
+  app ??= { client: saved.client, domain: saved.domain };
+  clientId.value = app.client;
+  region.value = app.domain;
   if (query.has('error') || query.getAll('code').length !== 1 || !query.get('code')) {
     throw new Error('Genesys Cloud did not complete sign-in. Check the OAuth client and callback URL.');
   }
