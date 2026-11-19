@@ -7,7 +7,7 @@
   <title>Genesys Cloud Phone</title>
   <link rel="stylesheet" href="./phone.css">
   <script defer src="https://cdn.jsdelivr.net/npm/genesys-cloud-webrtc-sdk@14.4.0/dist/v14.4.0/genesys-cloud-webrtc-sdk.bundle.min.js" integrity="sha384-gPq8XHeBTMSGgmeiPTTPhUJ9JCsM1gGFZTGcB//r3DbMvI0EgxxIzt8jCR0Hj7QT" crossorigin="anonymous"></script>
-  <script type="module" src="./phone.js?v=microsoft-sso"></script>
+  <script type="module" src="./phone.js?v=pkce-login"></script>
 </head>
 <body>
   <main>
@@ -15,13 +15,14 @@
     <form id="login" data-region="" data-client-id="" data-org="" data-provider="">
       <button class="primary" id="sign-in">Sign in with Microsoft</button>
       <details id="app-setup">
-        <summary>App setup</summary>
+        <summary>One-time app setup</summary>
         <label>Organization region<select id="region"></select></label>
-        <label>App client ID<input id="client-id" autocomplete="off" spellcheck="false"></label>
+        <label>Genesys OAuth Client ID<input id="client-id" autocomplete="off" spellcheck="false"></label>
         <label>Genesys Cloud organization name<input id="org" autocomplete="organization" spellcheck="false"></label>
         <label>Genesys SSO provider key (optional)<input id="provider" autocomplete="off" spellcheck="false" aria-describedby="provider-help"></label>
         <p id="provider-help">Leave blank to choose Microsoft on the Genesys Cloud sign-in page.</p>
         <label>OAuth callback URL<input id="callback" readonly></label>
+        <button id="copy-callback" type="button">Copy callback</button>
         <button id="save-setup" type="button">Save setup</button>
       </details>
     </form>
