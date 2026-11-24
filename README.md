@@ -21,3 +21,11 @@ Enter a number or extension to dial, or use **Answer** when an incoming call arr
 If Genesys shows an error before returning to the site, check the registered callback, OAuth Client ID, region, and grant in Genesys first. If Genesys asks for administrator approval, check **IT and Integrations → Authorized Applications**. Phone permissions, a WebRTC station, and microphone access are checked separately after sign-in.
 
 For local testing, serve the repository with `python3 -m http.server 8000`. Register the callback shown at `http://localhost:8000/` with a development OAuth client.
+
+## Project status and SDK
+
+This is a single-call development phone. The page loads the Genesys Cloud WebRTC SDK version 14.4.0 from jsDelivr. The [SDK](https://github.com/MyPureCloud/genesys-cloud-webrtc-sdk) has its own terms. Use a development Genesys organization and test numbers when validating changes.
+
+## License
+
+Project code is available under the [MIT License](LICENSE).
