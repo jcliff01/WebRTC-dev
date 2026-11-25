@@ -6,6 +6,8 @@ A phone in your web browser for Genesys Cloud users. Sign in with your Microsoft
 
 **Open the phone:** [jcliff01.github.io/WebRTC-dev](https://jcliff01.github.io/WebRTC-dev/)
 
+![The phone's sign-in page, with the one-time setup open](docs/screenshot.png)
+
 ## For users
 
 1. Open the phone link above. Your Genesys administrator must have set it up first (see below).
