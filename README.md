@@ -1,31 +1,53 @@
 # Genesys Cloud WebRTC phone
 
-A single-call browser phone for a signed-in Genesys Cloud user. The app uses the Genesys Cloud WebRTC SDK and OAuth Authorization Code with PKCE, with no application server or client secret.
+A phone in your web browser for Genesys Cloud users. Sign in with your Microsoft work account, then make and answer one call at a time, hang up and mute, with the computer's microphone and speakers. Nothing to install: use Chrome or Edge (or Firefox) on Windows, macOS or Linux.
 
-## Microsoft single sign-on
+> **Status: development phone.** It handles one call at a time. Test it with a development Genesys Cloud organization and test numbers first.
 
-Configure [Microsoft Entra single sign-on for Genesys Cloud](https://learn.microsoft.com/en-us/entra/identity/saas-apps/purecloud-by-genesys-tutorial) in your organization before testing. The phone starts the Genesys Cloud OAuth flow and Genesys handles the Microsoft sign-in. Genesys then issues the access token for the WebRTC SDK.
+**Open the phone:** [jcliff01.github.io/WebRTC-dev](https://jcliff01.github.io/WebRTC-dev/)
 
-The Genesys Client ID identifies this website. Users sign in with their existing work accounts. The existing Entra enterprise app for Genesys handles Microsoft authentication. Register the website callback in Genesys Cloud OAuth.
+## For users
 
-## Setup
+1. Open the phone link above. Your Genesys administrator must have set it up first (see below).
+2. Click **Sign in with Microsoft** and sign in with your work account. If Genesys shows its own sign-in page, click **More Login Options**, enter your organization if asked, and choose Microsoft.
+3. Click **Enable phone**, and allow the browser to use your microphone.
+4. **To call:** type a number or extension and click **Call**. **To answer:** click **Answer** when a call comes in. Use **Hang up** to end a call and **Mute** to turn your microphone off and on.
 
-1. In repository Settings → Pages, choose **Deploy from a branch**, **main**, and **/ (root)** if Pages is not already configured.
-2. In Genesys Cloud, use a **Code Authorization / PKCE** OAuth client for this app. Create one under **IT and Integrations → OAuth** if you do not already have a suitable client. Add the exact callback displayed on the phone to **Authorized redirect URIs**. Keep the trailing slash. On the default GitHub Pages URL it is `https://jcliff01.github.io/WebRTC-dev/`.
-3. Enable OAuth scopes `authorization`, `conversations`, `organizations`, and `notifications` as documented by the [Genesys WebRTC SDK](https://github.com/MyPureCloud/genesys-cloud-webrtc-sdk/blob/develop/doc/index.md#app-authorization). The user also needs their normal telephony permissions, a selected Genesys Cloud WebRTC station, and a site dial plan that permits the destination.
-4. For one-button sign-in on every browser, set `data-region` and `data-client-id` on the login form in `index.html` (for example `data-region="mypurecloud.com"`). The app client ID is a public identifier. Never put a client secret in the site. For a single-browser test, open **App setup**, enter the same values, and select **Save setup**. Set `data-org` to the Genesys Cloud organization name and, for a direct handoff, `data-provider` to the provider key your Genesys administrator uses for Entra. The same values can be entered in App setup. Leave the provider key blank to select Microsoft on the Genesys sign-in page.
-5. Users select **Sign in with Microsoft** and use their work account. If Genesys displays its login screen, choose **More Login Options**, enter the organization if prompted, and select the configured Microsoft provider. Then select **Enable phone** to grant microphone access. Close other tabs acting as the same phone while testing.
+Refreshing or closing the page signs you out; sign in again to continue. Close other tabs that use the same phone while you test.
 
-Enter a number or extension to dial, or use **Answer** when an incoming call arrives. Use **Hang up** to end the call and **Mute** to toggle the microphone. Access tokens and call state live in memory. Refreshing requires signing in again.
+| What you see | What to do |
+| --- | --- |
+| "Select a Genesys Cloud WebRTC phone in your organization" | In Genesys Cloud, pick your WebRTC phone as your station, then come back. |
+| Calls don't connect | You need Genesys telephony permissions, a WebRTC station, and a dial plan that allows that number. Ask your administrator. |
+| No sound, or the microphone is blocked | Allow the microphone in the browser's address bar (the lock or camera icon), then click **Enable phone** again. |
+| Genesys asks for administrator approval | Your administrator must approve the app under **Admin → IT and Integrations → Authorized Applications**. |
 
-If Genesys shows an error before returning to the site, check the registered callback, OAuth Client ID, region, and grant in Genesys first. If Genesys asks for administrator approval, check **IT and Integrations → Authorized Applications**. Phone permissions, a WebRTC station, and microphone access are checked separately after sign-in.
+## For Genesys administrators: one-time setup
 
-For local testing, serve the repository with `python3 -m http.server 8000`. Register the callback shown at `http://localhost:8000/` with a development OAuth client.
+1. **Microsoft sign-in.** Set up [Microsoft Entra single sign-on for Genesys Cloud](https://learn.microsoft.com/en-us/entra/identity/saas-apps/purecloud-by-genesys-tutorial) if your organization doesn't use it yet. The phone hands sign-in to Genesys, which hands it to Microsoft.
+2. **OAuth client.** In Genesys Cloud, go to **Admin → IT and Integrations → OAuth** and add a client with the **Code Authorization / PKCE** grant. Under **Authorized redirect URIs**, add the phone's address exactly, including the final `/`: `https://jcliff01.github.io/WebRTC-dev/`. Give it the scopes `authorization`, `conversations`, `organizations` and `notifications`, as the [Genesys WebRTC SDK](https://github.com/MyPureCloud/genesys-cloud-webrtc-sdk/blob/develop/doc/index.md#app-authorization) requires.
+3. **Tell the phone your settings.** Either way works:
+   - **For everyone (recommended):** in `index.html`, fill in the `login` form's attributes: `data-region` (your region, such as `mypurecloud.com`), `data-client-id` (the OAuth Client ID), `data-org` (your Genesys Cloud organization name), and optionally `data-provider` (the key of your Microsoft sign-in provider in Genesys, to skip the Genesys sign-in page). Commit the change; GitHub Pages updates the site within a few minutes. The Client ID is a public identifier, so it is safe here. **Never put a client secret in this site.**
+   - **For one browser, to test:** open **One-time app setup** on the phone page, enter the same values, and click **Save setup**.
+4. Each user needs normal Genesys telephony permissions and a WebRTC phone selected as their station.
 
-## Project status and SDK
+If sign-in fails before the browser comes back to the phone, check the redirect URI, Client ID, region and grant type in the OAuth client first.
 
-This is a single-call development phone. The page loads the Genesys Cloud WebRTC SDK version 14.4.0 from jsDelivr. The [SDK](https://github.com/MyPureCloud/genesys-cloud-webrtc-sdk) has its own terms. Use a development Genesys organization and test numbers when validating changes.
+## For developers
+
+The page is plain HTML and JavaScript, with no build step. To run it on your own computer you need any web server; Python's is the simplest:
+
+| Computer | Command, run in this folder |
+| --- | --- |
+| Windows | `py -m http.server 8000` (install Python with `winget install Python.Python.3.12`) |
+| macOS or Linux | `python3 -m http.server 8000` |
+
+Open http://localhost:8000/ and register `http://localhost:8000/` as a redirect URI in a development OAuth client.
+
+How it works: the page signs in with OAuth Authorization Code + PKCE in the browser, with no server and no client secret. Tokens and call state are kept only in the page's memory. It loads the [Genesys Cloud WebRTC SDK](https://github.com/MyPureCloud/genesys-cloud-webrtc-sdk) 14.4.0 from the jsDelivr CDN, pinned with an integrity hash; the SDK has its own license.
+
+To publish your own copy: fork this repository, then in **Settings → Pages** choose **Deploy from a branch**, branch **main**, folder **/ (root)**.
 
 ## License
 
-Project code is available under the [MIT License](LICENSE).
+[MIT](LICENSE).
